@@ -1,0 +1,22 @@
+app = "lifeos-db"
+primary_region = "iad"
+console_command = "/bin/bash"
+
+[build]
+  image = "flyio/postgres-flex:16"
+
+[env]
+  PRIMARY_REGION = "iad"
+
+[http_service]
+  internal_port = 5432
+  protocol = "tcp"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "pg_data"
+  destination = "/data"

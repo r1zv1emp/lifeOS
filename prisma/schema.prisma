@@ -1,0 +1,397 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Profile
+  bio           String?
+  timezone      String    @default("UTC")
+  avatar        String?
+  
+  // Gamification
+  xp            Int       @default(0)
+  level         Int       @default(1)
+  disciplineScore Int     @default(0)
+  streak        Int       @default(0)
+  longestStreak Int       @default(0)
+  lastActiveDate DateTime?
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  habits        Habit[]
+  habitLogs     HabitLog[]
+  badHabits     BadHabit[]
+  badHabitLogs  BadHabitLog[]
+  workouts      Workout[]
+  sleepLogs     SleepLog[]
+  journals      Journal[]
+  mealLogs      MealLog[]
+  waterLogs     WaterLog[]
+  weightLogs    WeightLog[]
+  focusSessions FocusSession[]
+  routines      Routine[]
+  achievements  UserAchievement[]
+  moodLogs      MoodLog[]
+  walkLogs      WalkLog[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ========================
+// HABITS
+// ========================
+
+model Habit {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  icon        String   @default("⭐")
+  color       String   @default("#3B82F6")
+  frequency   String   @default("daily") // daily, weekly, monthly
+  targetCount Int      @default(1)
+  category    String   @default("general")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  userId    String
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  count     Int      @default(1)
+  note      String?
+  createdAt DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@map("habit_logs")
+}
+
+// ========================
+// BAD HABITS / RECOVERY
+// ========================
+
+model BadHabit {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  icon        String   @default("⚠️")
+  category    String   // nofap, smoking, social_media, dopamine, junk_food, other
+  startDate   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs BadHabitLog[]
+
+  @@map("bad_habits")
+}
+
+model BadHabitLog {
+  id        String   @id @default(cuid())
+  badHabitId String
+  userId    String
+  date      DateTime @default(now())
+  relapsed  Boolean  @default(true)
+  trigger   String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  badHabit BadHabit @relation(fields: [badHabitId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bad_habit_logs")
+}
+
+// ========================
+// FITNESS
+// ========================
+
+model Workout {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  type        String   @default("gym") // gym, cardio, yoga, sports, other
+  duration    Int      // minutes
+  calories    Int?
+  notes       String?
+  date        DateTime @db.Date
+  exercises   Json?    // Array of {name, sets, reps, weight}
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("workouts")
+}
+
+model WalkLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  steps     Int?
+  distance  Float?   // km
+  duration  Int?     // minutes
+  calories  Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("walk_logs")
+}
+
+model WeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  weight    Float    // kg
+  bodyFat   Float?   // percentage
+  note      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("weight_logs")
+}
+
+// ========================
+// SLEEP
+// ========================
+
+model SleepLog {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime @db.Date
+  bedtime      DateTime
+  wakeTime     DateTime
+  duration     Float    // hours
+  quality      Int      // 1-10
+  deepSleep    Float?   // hours
+  remSleep     Float?   // hours
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("sleep_logs")
+}
+
+// ========================
+// JOURNAL
+// ========================
+
+model Journal {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  title       String?
+  content     String   @db.Text
+  type        String   @default("daily") // daily, gratitude, reflection, goals
+  mood        Int?     // 1-10
+  tags        String[]
+  isPrivate   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("journals")
+}
+
+model MoodLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  mood      Int      // 1-10
+  energy    Int?     // 1-10
+  anxiety   Int?     // 1-10
+  note      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("mood_logs")
+}
+
+// ========================
+// DIET
+// ========================
+
+model MealLog {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  mealType    String   @default("lunch") // breakfast, lunch, dinner, snack
+  name        String
+  calories    Int?
+  protein     Float?   // grams
+  carbs       Float?   // grams
+  fat         Float?   // grams
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("meal_logs")
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  amount    Int      // ml
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("water_logs")
+}
+
+// ========================
+// PRODUCTIVITY
+// ========================
+
+model FocusSession {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  duration    Int      // minutes
+  type        String   @default("pomodoro") // pomodoro, deep_work, flow
+  task        String?
+  completed   Boolean  @default(true)
+  distractions Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("focus_sessions")
+}
+
+// ========================
+// ROUTINES
+// ========================
+
+model Routine {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  type        String   @default("morning") // morning, evening, custom
+  time        String?  // "06:00"
+  steps       Json     // Array of {order, task, duration, completed}
+  isActive    Boolean  @default(true)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("routines")
+}
+
+// ========================
+// GAMIFICATION
+// ========================
+
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  xpReward    Int      @default(100)
+  category    String   // habits, fitness, sleep, streak, etc
+  condition   Json     // Logic for unlocking
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
